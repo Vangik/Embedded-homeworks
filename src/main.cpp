@@ -13,7 +13,7 @@ void loop() {
   digitalWrite(LED1_PIN, HIGH);
   delay(1000);
 
-  digitalWrite(LED1_PIN, LOW);
+  digitalWrite(LED1_PIN, 0x0);
   digitalWrite(LED2_PIN, HIGH);
   delay(1000);
 
@@ -139,5 +139,19 @@ void loop() {
   }
 }
 
+//Single GPIO control 2 LEDs
+#include <Arduino.h>
 
+#define LED1_PIN 4
 
+void setup() {
+  pinMode(LED1_PIN, OUTPUT);
+}
+
+void loop() {
+  digitalWrite(LED1_PIN, HIGH);
+  delay(1000);
+
+  digitalWrite(LED1_PIN, LOW);
+  delay(1000);
+}
