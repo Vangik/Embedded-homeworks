@@ -30,7 +30,7 @@ void loop(){
   double raw2 = analogReadMilliVolts(LDR_PIN);
 
   Serial.print("U_calc calculated value: ");
-  Serial.println(U_calc);
+  Serial.println(raw2);
 
   double Fault_calc = (raw2 != 0) ? (fabs(U_calc - raw2) / raw2) * 100 : 0.0;
 
