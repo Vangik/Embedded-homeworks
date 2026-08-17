@@ -1,75 +1,43 @@
-#include "Arduino.h"
-
-#define BUTTON_PIN 15
-bool lastState = HIGH;
-
-void setup() {
-  // Initialize serial communication at 115200 baud rate
-  Serial.begin(115200);
-  pinMode(BUTTON_PIN, INPUT);
-}
-
-void loop() {
-  static int clickCount = 0;
-
-  bool currentState = digitalRead(BUTTON_PIN); 
-
-  if (currentState == LOW && lastState == HIGH) {
-    clickCount++;
-    Serial.print("Button clicked ");
-    Serial.print(clickCount);
-    Serial.println(" times.");
-  }
-
-  lastState = currentState;
-}
-
-
 #include <Arduino.h>
+#include <math.h>
 
+#define LDR_PIN 4
 
-#define BUTTON_PIN 21
-const int debounceDelay = 50; // The delay in milliseconds to debounce the button pin
+constexpr double ADCmax = 4095.0;
+constexpr double Uref = 3100.0;
 
+void setup(){
+  Serial.begin(115200);
+  delay(1000);
 
-int buttonState; // The button is pressed when the pin reads LOW
-int lastButtonState = LOW; // The previous state of the button pin
-unsigned long lastDebounceTime = 0; // The last time the button pin was read
-
-
-void setup() {
- Serial.begin(115200); // Start the serial communication at 115200 baud rate
- pinMode(BUTTON_PIN, INPUT_PULLDOWN); // Set the button pin as an input with an internal pull-down resistor
- pinMode(2, OUTPUT); // Set the LED pin as an output
- Serial.println("Button state monitoring started");
+  pinMode(LDR_PIN, INPUT);
 }
 
+void loop(){
 
-void loop() {
- int reading = digitalRead(BUTTON_PIN); // Read the state of the button pin
+  Serial.print("Start \n");
 
+  double raw = analogRead(LDR_PIN);
 
- if (reading != lastButtonState) {
-   // Reset the debounce timer
-   lastDebounceTime = millis();
- }
+  Serial.print("Raw value: ");
+  Serial.println(raw);
 
+  double U_calc = (raw/ADCmax) * Uref;
 
- if((millis() - lastDebounceTime)> debounceDelay){
-   if (reading != buttonState){
+  Serial.print("U_calc calculated value: ");
+  Serial.println(U_calc);
 
+  double raw2 = analogReadMilliVolts(LDR_PIN);
 
-     buttonState = reading;
+  Serial.print("U_calc calculated value: ");
+  Serial.println(U_calc);
 
+  double Fault_calc = (raw2 != 0) ? (fabs(U_calc - raw2) / raw2) * 100 : 0.0;
 
-     if (buttonState == HIGH) {
-       Serial.println("Button pressed");
-       digitalWrite(2, HIGH); // Turn on the built-in LED when the button is pressed
-     } else {
-       Serial.println("Button released");
-       digitalWrite(2, LOW); // Turn off the built-in LED when the button is released 
-     }
-   }
- }
- lastButtonState = reading; // Save the current state as the last state for the next loop
+  Serial.print("Fault_calc calculated value: ");
+  Serial.print(Fault_calc);
+  Serial.println('%');
+
+  Serial.print("End \n");
+  delay(1000);
 }
