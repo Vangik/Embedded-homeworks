@@ -1,43 +1,108 @@
 #include <Arduino.h>
-#include <math.h>
+#include <BluetoothSerial.h>
 
-#define LDR_PIN 4
+#define LDR_PIN     4
+#define BUTTON_PIN  15
+#define LED1_PIN    19
+#define RELE_PIN    23
 
-constexpr double ADCmax = 4095.0;
-constexpr double Uref = 3100.0;
+const int LDR_DARK_THRESHOLD  = 2500; // raw нижче -> темно -> реле ON
+const int LDR_LIGHT_THRESHOLD = 2950; // raw вище  -> світло -> реле OFF
 
-void setup(){
-  Serial.begin(115200);
-  delay(1000);
+const unsigned long DEBOUNCE_MS   = 50;
+const unsigned long LDR_PERIOD_MS = 100;
+const bool RELAY_ACTIVE_LOW = false; 
 
-  pinMode(LDR_PIN, INPUT);
+BluetoothSerial SerialBT;
+
+enum Mode { MODE_AUTO, MODE_MANUAL };
+
+Mode mode = MODE_AUTO;
+bool relayOn = false;                 
+
+int lastButtonReading = HIGH;
+int buttonState       = HIGH;
+unsigned long lastDebounceTime = 0;
+unsigned long lastLdrTime = 0;
+
+void applyRelay() {                    // єдина точка фізичного керування
+  bool level = relayOn;
+  if (RELAY_ACTIVE_LOW) level = !level;
+  digitalWrite(RELE_PIN, level ? HIGH : LOW);
+  digitalWrite(LED1_PIN, (mode == MODE_MANUAL) ? HIGH : LOW);
 }
 
-void loop(){
+void onButtonPress() {                 // кнопка перемикає режим
+  if (mode == MODE_AUTO) {
+    mode = MODE_MANUAL;
+    relayOn = true;                    // форсуємо світло
+  } else {
+    mode = MODE_AUTO;                  // LDR знову бере керування
+  }
+  Serial.printf("Button -> mode=%s relay=%d\n",
+                mode == MODE_AUTO ? "AUTO" : "MANUAL", relayOn);
+}
 
-  Serial.print("Start \n");
+void handleButton() {
+  int reading = digitalRead(BUTTON_PIN);
+  if (reading != lastButtonReading) {
+    lastDebounceTime = millis();       // рівень смикнувся -> перезапуск таймера
+  }
+  if ((millis() - lastDebounceTime) > DEBOUNCE_MS) {
+    if (reading != buttonState) {      // стабільний новий стан
+      buttonState = reading;
+      if (buttonState == LOW) {        // INPUT_PULLUP: натиснута = LOW
+        onButtonPress();
+      }
+    }
+  }
+  lastButtonReading = reading;
+}
 
-  double raw = analogRead(LDR_PIN);
+void handleBluetooth() {               // BT дозволено ТІЛЬКИ вимикати
+  if (!SerialBT.available()) return;
+  char data = SerialBT.read();
+  if (data == '0') {
+    mode = MODE_MANUAL;
+    relayOn = false;
+    Serial.println("BT -> OFF (manual)");
+  } else if (data == '1') {
+    mode = MODE_MANUAL;
+    relayOn = true;
+    Serial.println("BT '1' ignored (off-only)");
+  } else {
+    Serial.println("BT invalid value");
+  }
+}
 
-  Serial.print("Raw value: ");
-  Serial.println(raw);
+void handleLDR() {                     // працює лише в авто-режимі
+  if (mode != MODE_AUTO) return;
+  int raw = analogRead(LDR_PIN);
+  if (raw < LDR_DARK_THRESHOLD) {
+    relayOn = true;
+  } else if (raw > LDR_LIGHT_THRESHOLD) {
+    relayOn = false;
+  }                                    // між порогами -> не міняємо
+  Serial.printf("raw=%d relay=%d\n", raw, relayOn);
+}
 
-  double U_calc = (raw/ADCmax) * Uref;
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  pinMode(LED1_PIN, OUTPUT);
+  pinMode(RELE_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  SerialBT.begin("ESP32_LED_LAMP");
+  applyRelay();
+  Serial.println("Init successful");
+}
 
-  Serial.print("U_calc calculated value: ");
-  Serial.println(U_calc);
-
-  double raw2 = analogReadMilliVolts(LDR_PIN);
-
-  Serial.print("U_calc calculated value: ");
-  Serial.println(U_calc);
-
-  double Fault_calc = (raw2 != 0) ? (fabs(U_calc - raw2) / raw2) * 100 : 0.0;
-
-  Serial.print("Fault_calc calculated value: ");
-  Serial.print(Fault_calc);
-  Serial.println('%');
-
-  Serial.print("End \n");
-  delay(1000);
+void loop() {
+  handleButton();
+  handleBluetooth();
+  if (millis() - lastLdrTime >= LDR_PERIOD_MS) {
+    lastLdrTime = millis();
+    handleLDR();
+  }
+  applyRelay();                        // без delay()
 }
