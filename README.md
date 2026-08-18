@@ -2,14 +2,4 @@
 
 
 
-
-<img width="722" height="473" alt="Screenshot 2026-08-08 at 14 25 20" src="https://github.com/user-attachments/assets/6b552619-e68b-4b40-ac55-22f66f727de4" />
-
-<img width="719" height="466" alt="Screenshot 2026-08-08 at 14 27 18" src="https://github.com/user-attachments/assets/89c20882-154f-453b-b00a-7311e338e150" />
-
-
-https://github.com/user-attachments/assets/86afb575-02d0-43d9-ab9c-f73eeffa38db
-
-https://github.com/user-attachments/assets/0d5ec7ed-07af-4eab-9c74-fb6cba3e7be4
-
-
+<img width="3072" height="4080" alt="PXL_20260815_193246015" src="https://github.com/user-attachments/assets/864af34f-61a0-4312-8b5d-20641b7e4799" />
