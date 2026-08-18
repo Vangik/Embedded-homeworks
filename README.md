@@ -84,3 +84,8 @@ Bluetooth-ім'я пристрою: **`ESP32_LED_LAMP`**. Підключитис
 <img width="4080" height="3072" alt="PXL_20260818_160946858" src="https://github.com/user-attachments/assets/ecb52b67-1fbf-479d-9a05-52b8d153a7d0" />
 
 
+
+https://github.com/user-attachments/assets/0d455db5-5e9e-418c-bbbe-03d409913527
+
+
+
