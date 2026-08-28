@@ -15,6 +15,7 @@ volatile bool buttonPressed = false;
 
 void IRAM_ATTR button_isr() {
   buttonPressed = true;
+  digitalWrite(Config::LED_PIN2, HIGH);  // червоний діод — індикація переривання (digitalWrite в ISR безпечний)
 }
 
 void setup() {
