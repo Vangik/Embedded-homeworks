@@ -1,4 +1,4 @@
-# ESP32 — Усунення брязкоту контактів кнопки (Button Debounce)
+# Interrupt in ESP32 — Button Debounce
 
 Домашнє завдання: реалізувати та порівняти різні методи усунення брязкоту
 механічної кнопки на ESP32 (ESP-IDF, Framework: ESP-IDF).
