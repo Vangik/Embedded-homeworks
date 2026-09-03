@@ -221,28 +221,3 @@ Polling FSM + RC
    кнопки це непомітно, але для швидких сигналів це треба враховувати.
 
 ---
-
-## Як зібрати і запустити
-
-```bash
-# активувати середовище ESP-IDF
-. $HOME/esp/esp-idf/export.sh   # або: get_idf
-
-idf.py set-target esp32
-idf.py build
-idf.py -p /dev/tty.usbserial-XXXX flash monitor
-```
-
-## Структура репозиторію
-
-```
-.
-├── main/
-│   └── main.c            # код відповідного завдання
-├── docs/                 # скріни логів і фото плати
-│   ├── task1.png … task4.png
-│   ├── task5_1.png … task5_4.png
-│   ├── photo_no_rc.jpg
-│   └── photo_rc.jpg
-└── README.md
-```
