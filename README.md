@@ -1,445 +1,69 @@
-# 🔌 Embedded Homeworks
+| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-H21 | ESP32-H4 | ESP32-P4 | ESP32-S2 | ESP32-S3 | ESP32-S31 |
+| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | --------- | -------- | -------- | -------- | -------- | --------- |
 
-Мій репозиторій з домашніми завданнями по курсу **Embedded Systems** (ESP32).
-Тут я складаю код по модулях + короткі конспекти-підказки, щоб будь-коли підглянути пройдене.
+# Blink Example
 
-> **Золоте правило курсу:** перш ніж шукати баг у коді — виміряй напругу мультиметром.
-> ~90% проблем в embedded — це не код, а електрика (просадка напруги, перевищення струму GPIO, немає спільного GND, немає decoupling-конденсатора).
+(See the README.md file in the upper level 'examples' directory for more information about examples.)
 
----
+This example demonstrates how to blink a LED by using the GPIO driver or using the [led_strip](https://components.espressif.com/component/espressif/led_strip) library if the LED is addressable e.g. [WS2812](https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf). The `led_strip` library is installed via [component manager](main/idf_component.yml).
 
-## 📁 Структура репо
+## How to Use Example
 
-```
-/module-1.1/   # Основи RLC: вимірювання струму і напруги
-/module-1.2/   # LED, опір, напруга: розрахунок резистора
-/module-1.3/   # Введення ESP32 + перша програма Blink
-/module-1.4/   # GPIO та Pinout: читання даташита
-/module-1.5/   # Сигнали та кнопка: осцилограф, брязкіт
-/module-1.6/   # Введення ADC: аналоговий вхід, фоторезистор
-...            # далі по мірі проходження
-```
+Before project configuration and build, be sure to set the correct chip target using `idf.py set-target <chip_name>`.
 
----
+### Hardware Required
 
-## 🗺️ Прогрес по курсу
+* A development board with normal LED or addressable LED on-board (e.g., ESP32-S3-DevKitC, ESP32-C6-DevKitC etc.)
+* A USB cable for Power supply and programming
 
-| Блок | Тема | Статус |
-|------|------|:------:|
-| Self-study 3 | Що таке Embedded (IoT / automotive / industrial / defence) | ✅ |
-| Self-study 4 | Основи електроніки: U, I, R, закон Ома | ✅ |
-| Self-study 5 | Компоненти: резистори, конденсатори, індуктори, діоди, транзистори | ✅ |
-| Self-study 6 | Платформи: Arduino / STM32 / ESP32 / SBC / Embedded Linux | ✅ |
-| Self-study 7 | Базовий синтаксис C++ | ✅ |
-| Self-study 8 | Інструменти: мультиметр, паяльник, breadboard, лог. аналізатор | ✅ |
-| Модуль 1.1 | Основи RLC: як виміряти струм і напругу | ✅ |
-| Модуль 1.2 | Чи можна спалити LED? Опір і напруга | ✅ |
-| Модуль 1.3 | Введення ESP32 + перша програма Blink | ✅ |
-| Модуль 1.4 | GPIO та Pinout: робота з GPIO та читання даташита | ✅ |
-| Модуль 1.5 | Сигнали та Кнопка: що бачить осцилограф | ✅ |
-| Модуль 1.6 | Введення ADC: як «читати» світло (аналоговий вхід) | ✅ |
-| Модуль 2.1 | C++ для MCU: обмеження ресурсів | ⏳ |
+See [Development Boards](https://www.espressif.com/en/products/devkits) for more information about it.
 
----
+### Configure the Project
 
-## ⚡ Шпаргалка №1 — Електрика (закон Ома)
+Open the project configuration menu (`idf.py menuconfig`).
 
-Три величини, дві з яких завжди дають третю:
+In the `Example Configuration` menu:
 
-```
-U = I × R        (напруга = струм × опір)
-I = U / R
-R = U / I
-```
+* Select the LED type in the `Blink LED type` option.
+  * Use `GPIO` for regular LED
+  * Use `LED strip` for addressable LED
+* If the LED type is `LED strip`, select the backend peripheral
+  * `RMT` is only available for ESP targets with RMT peripheral supported
+  * `SPI` is available for all ESP targets
+* Set the GPIO number used for the signal in the `Blink GPIO number` option.
+* Set the blinking period in the `Blink period in ms` option.
 
-- **U (напруга, В)** — «тиск», що штовхає електрони. Рівні в embedded: **3.3 В** (ESP32, сучасні сенсори), **5 В** (Arduino, USB), **12 В** (мотори, стрічки — через драйвер).
-- **I (струм, А / мА)** — скільки заряду тече. Показує реальне споживання.
-- **R (опір, Ω)** — наскільки коло протидіє струму.
+### Build and Flash
 
-**Потужність (щоб резистор не згорів):**
-```
-P = I² × R   =   U² / R   =   U × I
-```
-Стандартний резистор тримає **0.25 Вт**. Якщо розрахунок дає більше — бери резистор на 1 Вт+.
+Run `idf.py -p PORT flash monitor` to build, flash and monitor the project.
 
-### ⚠️ Небезпечні межі
-- 5 В на вхід 3.3 В без узгодження → миттєве пошкодження чіпа.
-- Просадка живлення ESP32 навіть на **0.2–0.3 В** → перезавантаження (brownout).
-- Перевищення струму GPIO → перегрів → деградація → згорання порту.
+(To exit the serial monitor, type ``Ctrl-]``.)
 
----
+See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html) for full steps to configure and use ESP-IDF to build projects.
 
-## 💡 Шпаргалка №2 — Розрахунок резистора для LED
+## Example Output
 
-```
-R = (Vs − Vf) / If
-```
-- **Vs** — напруга джерела
-- **Vf** — падіння на самому LED (~2 В червоний, ~3.0–3.4 В білий/синій)
-- **If** — бажаний струм (безпечно 5–15 мА)
+As you run the example, you will see the LED blinking, according to the previously defined period. For the addressable LED, you can also change the LED color by setting the `led_strip_set_pixel(led_strip, 0, 16, 16, 16);` (LED Strip, Pixel Number, Red, Green, Blue) with values from 0 to 255 in the [source file](main/blink_example_main.c).
 
-**Приклад:** 5 В джерело, червоний LED (Vf ≈ 2 В), хочу 10 мА:
-```
-R = (5 − 2) / 0.01 = 300 Ω  →  беру найближчий більший стандартний: 330 Ω
+```text
+I (315) example: Example configured to blink addressable LED!
+I (325) example: Turning the LED OFF!
+I (1325) example: Turning the LED ON!
+I (2325) example: Turning the LED OFF!
+I (3325) example: Turning the LED ON!
+I (4325) example: Turning the LED OFF!
+I (5325) example: Turning the LED ON!
+I (6325) example: Turning the LED OFF!
+I (7325) example: Turning the LED ON!
+I (8325) example: Turning the LED OFF!
 ```
 
-**Струми LED (стандартний 3–5 мм):**
-| Струм | Що це |
-|-------|-------|
-| 2–5 мА | сучасний індикатор, ощадливо |
-| 10–15 мА | нормальна яскравість |
-| 20 мА | номінальний максимум |
-| 30 мА | 🔴 червона зона, швидка деградація |
+Note: The color order could be different according to the LED model.
 
-> LED напряму до GPIO без резистора = спалений порт. **Завжди 220–330 Ω.**
-> При 150 °C кристала p-n перехід деградує (миттєвий пробій або повільне згасання).
+The pixel number indicates the pixel position in the LED strip. For a single LED, use 0.
 
----
+## Troubleshooting
 
-## 🧩 Шпаргалка №3 — Компоненти
+* If the LED isn't blinking, check the GPIO or the LED type selection in the `Example Configuration` menu.
 
-| Компонент | Роль | Запам'ятати |
-|-----------|------|-------------|
-| **Резистор** | обмежує струм, дільник, pull-up/down | 220–330 Ω для LED, 4.7–10 kΩ для pull-up |
-| **Конденсатор** | згладжує живлення, фільтрує шум | електролітичний **має полярність (+/−)**! |
-| **Індуктор** | накопичує енергію в магн. полі, фільтр | у джерелах живлення, фільтрах |
-| **Діод** | струм лише в один бік (анод→катод) | захист від зворотної полярності |
-| **Транзистор** | ключ / підсилювач | малий струм бази керує великим струмом |
-
-**Decoupling (критично!):** керамічний **0.1 мкФ** біля кожного чіпа (ВЧ-шум) + електролітичний **100–470 мкФ** біля Wi-Fi/потужних модулів (просадки струму).
-
-**Транзистори — коли що:**
-- **BJT** — керується струмом, для лінійного підсилення
-- **MOSFET** — керується напругою, швидкий ключ (цифра, PWM, живлення)
-- **IGBT** — гібрид, для великої потужності/напруги
-
----
-
-## 🖥️ Шпаргалка №4 — Платформи
-
-| | MCU (ESP32, STM32, Arduino) | SBC (Raspberry Pi) |
-|--|------|------|
-| Запуск | миттєвий (мс) | завантаження ОС (сек) |
-| ОС | немає / RTOS | Linux, Android |
-| Реакція | мкс, детермінована | мс, недетермінована |
-| Живлення | 1–100 мА | 500–3000 мА |
-| Для чого | сенсори, мотори, реалтайм | відео, AI, сервери |
-
-**ESP32 (наша платформа):** двоядерний Xtensa LX6 до 240 МГц, 520 КБ SRAM, **Wi-Fi + BLE на борту**, 34 GPIO, 18 каналів 12-біт ADC, 2×8-біт DAC, UART/I²C/SPI.
-GPIO ESP32 тримає **~20 мА** — це керуючий сигнал, а не джерело живлення.
-
----
-
-## 🔧 Шпаргалка №5 — Мультиметр
-
-| Хочу виміряти | Режим | Як підключати |
-|---------------|-------|---------------|
-| **Напругу (U)** | V⎓ (DCV) | **паралельно**, схема під живленням. Безпечно (великий імпеданс) |
-| **Струм (I)** | A / mA | **послідовно**, розірвати коло і «вбудуватись». Почни з більшого діапазону! |
-| **Опір (R)** | Ω | тільки на **знеструмленій** схемі |
-| **Продзвонка / GND** | 🔔 | чорний щуп на відому землю, червоним шукаю решту |
-| **Діод** | ⯈⊢ | норма: 0.6–0.7 В звичайний, 1.8–3.3 В LED |
-
-> 🚨 **Головна помилка новачка:** вимірювати струм паралельно. У режимі амперметра опір майже нульовий → коротке замикання → згорілий запобіжник.
-
-**Гнізда:** `COM` (чорний, мінус) · `VΩmA` (напруга/опір/малий струм) · `10A` (великий струм).
-
----
-
-## 🔩 Шпаргалка №6 — Інструменти та безпека
-
-- **ESD** — невидимий вбивця чіпів (до 35 000 В від кроку по килиму). Браслет, заземлення, антистатичні пакети, брати мікросхему за корпус.
-- **Паяльник** 30–60 Вт, 300–400 °C. Тільки в підставці, ніколи без нагляду. Припій має «текти як вода», а не «липнути як клей». Паяльник — джерело тепла, не пензель.
-- **Холодна пайка** = тьмяна зерниста поверхня = ненадійний контакт. Гарна пайка — блискучий гладкий «вулкан».
-- **Breadboard** — «LEGO електроніки»: центральні колонки по 5 отворів вертикально, шини живлення по боках горизонтально, жолоб для DIP-мікросхем. Тільки для прототипів, не для фіналу.
-- **Логічний аналізатор** — показує *що* передається (0/1 у часі, декодує I²C/SPI/UART). Осцилограф показує *форму* сигналу. Обов'язково підключати спільний GND.
-
----
-
-## 🧠 Шпаргалка №7 — C++ для embedded
-
-**Фіксовані типи (`<cstdint>`)** — завжди замість `int` там, де важливий розмір:
-```cpp
-uint8_t   // 0..255, 1 байт (сирі байти, регістри)
-int32_t   // ±, 4 байти
-size_t    // для розмірів/індексів, беззнаковий
-```
-
-**Пам'ять:**
-- `stack` — локальні змінні, авто-керування, LIFO, обмежений (переповнення = stack overflow)
-- `heap` — `new/delete`, ручне керування, ризик витоку пам'яті
-- `static/global` — весь час життя програми
-- `const/text` — код + літерали, тільки читання
-
-**Вказівники vs посилання:**
-```cpp
-int* p;        // адреса, може бути nullptr, треба розіменовувати (*p)
-int& r = x;    // псевдонім, завжди валідне, не переприв'язується
-```
-
-**const з вказівниками:**
-```cpp
-const int* p;        // не можна змінити дані
-int* const p;        // не можна змінити адресу
-const int* const p;  // ні те, ні те
-```
-
-**Бітові операції (робота з регістрами):**
-```cpp
-reg |=  (1 << n);   // встановити біт n
-reg &= ~(1 << n);   // скинути біт n
-reg ^=  (1 << n);   // інвертувати біт n
-if (reg & (1 << n)) // перевірити біт n
-```
-
-**Пастки:**
-- Переповнення `signed` = **UB** (undefined behavior); `unsigned` = wrap-around по модулю.
-- Padding у структурах: порядок полів впливає на `sizeof`. Групуй за розміром.
-- `constexpr` — рахується під час компіляції, економить процесор на MCU.
-
----
-
-## 💾 Шпаргалка №8 — Перша програма (Blink)
-
-На MCU немає `int main()` — програма живе вічно у двох фазах:
-- `setup()` — «народження», виконується **один раз** при подачі живлення (конфіг пінів).
-- `loop()` — «життя», нескінченний `while(true)`, звідки MCU ніколи не виходить.
-
-```cpp
-#include <Arduino.h>
-
-#define LED_OUT 15            // зовнішній LED на GPIO15 (_OUT = працює на вихід)
-
-void setup() {
-    pinMode(LED_OUT, OUTPUT); // пін генерує напругу сам
-}
-
-void loop() {
-    digitalWrite(LED_OUT, HIGH); // 3.3 В → LED світиться
-    delay(1000);                 // пауза 1000 мс
-    digitalWrite(LED_OUT, LOW);  // 0 В → LED гасне
-    delay(1000);
-}
-```
-
-**Кнопка «Upload» =** компіляція (C++ → бінарник) + прошивка (запис у Flash). Після цього ESP32 пам'ятає програму без комп'ютера.
-Терміни: **Bootloader** (запускає твою програму) · **Firmware/прошивка** · **Board Manager** (пакети плат в Arduino IDE).
-
----
-
-## 📌 Шпаргалка №9 — GPIO на ESP32-S3 (найважливіше!)
-
-**Логічні рівні:** HIGH = 3.3 В, LOW = 0 В. **5 В на вхід = смерть чіпа.**
-**Струм піна:** абс. максимум 40 мА, але робочий тримай ≤ **20 мА**.
-
-### Функції
-```cpp
-pinMode(pin, OUTPUT);          // вихід (push-pull): сам ставить 3.3В / 0В
-pinMode(pin, INPUT);           // вхід (Hi-Z, високий імпеданс)
-pinMode(pin, INPUT_PULLUP);    // вхід + внутрішній pull-up (~40 кОм) до VDD
-pinMode(pin, INPUT_PULLDOWN);  // вхід + внутрішній pull-down до GND
-digitalWrite(pin, HIGH/LOW);   // ~1 мкс на ESP32 (для швидкого — регістри)
-int s = digitalRead(pin);      // повертає 1 або 0
-```
-> На ESP32 `pinMode()` викликати **обов'язково** (на відміну від AVR): за замовчуванням піни можуть бути на іншій функції через GPIO Matrix.
-
-### «Плаваючий» пін (floating)
-Вхід без сигналу ловить наводки → випадкові 0/1 → непередбачувана поведінка.
-**Рішення — pull-up/pull-down.** Кнопки зазвичай замикають на GND → стандарт це **`INPUT_PULLUP`** (у спокої HIGH, натиснута → LOW).
-
-### Категорії пінів ESP32-S3 (плата YD-ESP32-S3, N16R8)
-
-| Категорія | Піни | Нотатка |
-|-----------|------|---------|
-| ✅ **Безпечні цифрові** | 15, 16, 17, 18 | чисті GPIO, бери сміливо |
-| ✅ **Безпечні високі** | 38, 39, 40, 41, 42 | LED, мотори, PWM, дисплеї |
-| ✅ **ADC1 (аналог)** | 1–7 (до 10) | датчики, **працюють з Wi-Fi** |
-| ⚠️ **ADC2** | 11–20 | ADC **не працює при увімкненому Wi-Fi** |
-| ⚠️ **Strapping** | 0, 3, 45, 46 | режим завантаження — не чіпати без потреби |
-| 🔌 **USB** | 19, 20 | D− / D+ нативного USB |
-| 🔌 **UART логи** | 43, 44 | заводський TX/RX (монітор порту) |
-| 💡 **Вбудовані LED** | 48 (синій), 47 (RGB WS2812) | вже розведені на платі |
-| 🚫 **ЗАБОРОНЕНІ** | 26–32, 33–37 | шина Octal SPI до Flash/PSRAM → Bootloop! |
-| 🚫 **Пастка R8** | 13, 14 | у версії 8 МБ PSRAM це лінії D4/D5 — не чіпати |
-
-> ⚠️ Підключив LED/кнопку до **GPIO0** без розуміння → чіп застряг у режимі прошивки або не стартує.
-
-### GPIO Matrix vs IO_MUX
-- **IO_MUX** — прямий швидкий шлях до піна (SPI, USB, JTAG, ADC), до 80 МГц.
-- **GPIO Matrix** — програмований «посередник»: майже будь-який сигнал на будь-який пін (I²C, UART, PWM). Гнучко, але +1 такт APB (12.5 нс), стеля ~40 МГц.
-
-### ADC
-12 біт = 4096 рівнів на 0–3.3 В → крок ≈ 0.8 мВ. При Wi-Fi канали ADC2 недоступні.
-
-### Приклад: кнопка + LED
-```cpp
-#include <Arduino.h>
-#define LED_PIN 16
-#define BUTTON_PIN 21
-
-void setup() {
-    Serial.begin(115200);
-    delay(1000);                        // дати Serial стабілізуватись
-    pinMode(LED_PIN, OUTPUT);
-    pinMode(BUTTON_PIN, INPUT_PULLUP);  // у спокої HIGH
-}
-
-void loop() {
-    if (digitalRead(BUTTON_PIN) == LOW) // натиснута = замкнута на GND
-        digitalWrite(LED_PIN, HIGH);
-    else
-        digitalWrite(LED_PIN, LOW);
-    delay(50);                          // найпростіший антидребезг
-}
-```
-> **Брязкіт (bounce):** механічні контакти дзвенять 5–20 мс → MCU бачить багато натискань. Найпростіше — `delay(50)`; правильно — таймери (буде в Модулі 2.6).
-
----
-
-## 📡 Шпаргалка №10 — Сигнали та осцилограф (кнопка)
-
-**Часова область (time domain):** графік «напруга від часу». Осцилограф це і малює.
-
-**Дві ручки осцилографа:**
-- **Volts/Div** (вертикаль) — скільки вольт на одну клітинку. Розтягуй сигнал майже на весь екран для точності.
-- **Time/Div** (горизонталь) — скільки часу на клітинку. Велика шкала → загальна картина; мала (1–10 мс/под) → видно дрібні деталі (брязкіт).
-
-**Фронти:**
-- **Rising edge** — перехід LOW→HIGH (0 → 3.3 В), лінія вгору.
-- **Falling edge** — HIGH→LOW, лінія вниз.
-- Час фронту міряють від **10% до 90%** амплітуди (щоб уникнути шуму на краях).
-
-**Часові параметри:**
-```
-Період T        — час одного повного циклу (від фронту до такого ж фронту)
-Частота f = 1/T — циклів за секунду, Гц
-Pulse Width     — скільки сигнал тримається в HIGH (або LOW)
-Duty Cycle %    = (Pulse Width / T) × 100
-```
-**Меандр** — ідеальний симетричний прямокутник: HIGH = LOW, Duty Cycle = 50%. База для тактування й PWM.
-
-**Брязкіт на екрані:** на 100 мс/под виглядає як чистий перехід; переключив на 1–10 мс/под → на фронті видно пачку HIGH↔LOW (5–20 мс). Логічний аналізатор у режимі **edge trigger** дає порахувати ці хибні переходи.
-
-**Чим дивитись:**
-| Інструмент | Коли |
-|-----------|------|
-| Осцилограф | форма сигналу, шум, наводки, аналог |
-| Логічний аналізатор | багато цифрових ліній 0/1, декодування I²C/SPI/UART, підрахунок брязкоту |
-| Serial Plotter (Arduino IDE) | швидко глянути дані з піна графіком |
-| Віртуальний осцил. на ESP32 | дешево, але мала частота вибірки — пропускає короткі імпульси |
-
-> Кнопку зазвичай вішають з **pull-up 10 кОм** (або `INPUT_PULLUP`): у спокої HIGH, натиснута → LOW.
-
----
-
-## 🌗 Шпаргалка №11 — ADC: аналоговий вхід (читаємо світло)
-
-Світ аналоговий (плавний), MCU цифровий (0/1). **ADC** (АЦП) перекладає напругу в число.
-
-- `digitalRead()` питає: «є напруга?» → 0/1 (кнопка).
-- `analogRead()` питає: «**скільки** напруги?» → число (сенсор).
-
-**ESP32 = 12-біт ADC:**
-```
-N = 2^12 = 4096 рівнів  →  значення 0..4095
-0 В   → 0
-3.3 В → 4095
-
-Напруга = (значення_ADC / 4095) × 3.3
-приклад: 2048 → ≈ 1.65 В (половина)
-```
-> ADC на ESP32 не ідеально лінійний на краях (біля 0 і 3.3 В). Для «світло/темно» — байдуже; для точних вимірів — калібрування.
-
-### Дільник напруги (щоб виміряти опір сенсора)
-MCU міряє **напругу, не опір**. Резистивний сенсор (фоторезистор LDR) ставимо в дільник:
-```
-3.3V ── R1 (LDR) ──●── R2 (10 кОм) ── GND
-                   │
-              пін ESP32 (ADC)
-
-Vout = Vin × R2 / (R1 + R2)
-```
-- **Світло** → опір LDR малий → Vout ↑ → ADC велике (напр. 3500).
-- **Темрява** → опір LDR великий → Vout ↓ → ADC мале (напр. 100).
-
-### Піни для ADC на ESP32-S3
-| | Піни | Нотатка |
-|--|------|---------|
-| ✅ **ADC1** | GPIO 1–10 (зручні 4,5,6,7) | працює завжди, **навіть з Wi-Fi** |
-| 🚫 **ADC2** | GPIO 11–20 | `analogRead()` **не працює при Wi-Fi** |
-
-> ⚠️ Ніколи не подавай **>3.3 В** на аналоговий пін — спалиш MCU.
-> **Шум квантування** — похибка округлення напруги до найближчого кроку (~0.8 мВ). Дані «скачуть» → згладжують фільтром Moving Average (буде в Модулі 5.5).
-
----
-
-## ✅ Чек-ліст перед запуском плати
-
-- [ ] Рівні напруг сумісні (3.3 В ↔ 5 В узгоджені)?
-- [ ] Блок живлення тягне сумарний струм?
-- [ ] Нічого не живиться напряму з GPIO?
-- [ ] Є **спільний GND** між усіма модулями?
-- [ ] Не задовгі дроти на I²C / UART?
-- [ ] Правильні pull-up / pull-down (немає плаваючих входів)?
-- [ ] Не використані strapping / заборонені піни під периферію?
-- [ ] Врахована потужність резисторів?
-- [ ] Є decoupling-конденсатори біля чіпів?
-- [ ] Захист від зворотної полярності?
-
----
-
-## 🔗 Корисні посилання та відео
-
-### 🧮 Калькулятори та симулятори
-- [LED-резистор — ledcalculator.net](https://ledcalculator.net/)
-- [LED-резистор — DigiKey](https://www.digikey.com/en/resources/conversion-calculators/conversion-calculator-led-series-resistor)
-- [Кольоровий код резисторів — DigiKey](https://www.digikey.com/en/resources/conversion-calculators/conversion-calculator-resistor-color-code)
-- [Симулятор схем Falstad](https://www.falstad.com/circuit/)
-
-### ⚡ Електроніка та закон Ома
-- [Закон Ома — пояснення формули](https://18000.ck.ua/formula-zakonu-oma-dlia-dilianky-kola-poiasnennia-ta-zastosuvannia/)
-- [Перша сходинка — Резистори (кольорове маркування)](https://radiodetali.com.ua/ua/articles/persha-shodinka-rezistori-chastina-persha-34)
-- [Чому перегорають світлодіоди](https://ua.trrsemicon.com/info/why-do-led-diodes-burn-out-17153945642836992.html)
-- [Підключення LED: послідовне vs паралельне](https://www.ledsupply.com/blog/wiring-leds-correctly-series-parallel-circuits-explained/)
-- [Основи електроніки — конспект лекцій (PDF, LED стор. 39–43)](https://evnuir.vnu.edu.ua/bitstream/123456789/27378/3/Electronics_LectureNotes.pdf)
-
-### 🔧 Інструменти
-- [Як користуватися мультиметром (ч.1)](https://electronoff.ua/ua/academy/post/kak-polzovatsya-multimetrom-chast-1.php)
-- [Макетні плати та їх особливості](https://minicomp.com.ua/ua/blog-ua/maketni-plati-ta-yih-osoblivosti)
-
-### 🖥️ ESP32 — старт, Blink, IDE
-- [ESP32 — повна база уроків (IT Master)](https://itmaster.biz.ua/electronics/esp32.html)
-- [ESP32 — цифрові GPIO (IT Master)](https://itmaster.biz.ua/electronics/esp32/esp32-gpio.html)
-- [ESP32 в Arduino IDE — встановлення (IT Master)](https://itmaster.biz.ua/electronics/esp32/esp32-arduino.html)
-- [Налаштування PlatformIO + VS Code](https://docs.lilka.dev/uk/latest/programming/environment/)
-- [Документація PlatformIO](https://docs.platformio.org/)
-- [Старт кар'єри в Embedded: інструменти (DOU)](https://dou.ua/forums/topic/51237)
-
-### 📌 ESP32 — GPIO, Pinout, даташит (Модуль 1.4)
-- [ESP32 Pinout Reference — RandomNerdTutorials](https://randomnerdtutorials.com/esp32-pinout-reference-gpios/)
-- [ESP32 Digital Inputs/Outputs — RandomNerdTutorials](https://randomnerdtutorials.com/esp32-digital-inputs-outputs-arduino/)
-- [📄 Даташит ESP32-S3-WROOM-1 (N16R8) — Espressif](https://documentation.espressif.com/esp32-s3-wroom-1_wroom-1u_datasheet_en.html)
-
-### 📡 Осцилограф, сигнали, кнопка (Модуль 1.5)
-- [Що таке осцилограф і для чого — a-radio](https://a-radio.com.ua/blog/shcho-take-ostsylohraf-i-dlia-choho-vykorystovuietsia/)
-- [Логічні аналізатори — принципи та застосування (sea-tm)](https://sea-tm.com.ua/lohichni-analizatory/)
-- [Осцилограф FNIRSI DSO-510 — огляд і налаштування](https://220.km.ua/blog/poradi/ostsilograf-fnirsi-dso-510-oglyad)
-- [Serial Plotter в Arduino IDE — офіц. гайд](https://docs.arduino.cc/software/ide-v2/tutorials/ide-v2-serial-plotter)
-- [Цифрові входи ESP: кнопка, INPUT_PULLUP (IT Master)](https://itmaster.biz.ua/electronics/esp8266/esp8266-button.html)
-
-### 🌗 ADC, аналоговий вхід, фоторезистор (Модуль 1.6)
-- [Аналогові vs цифрові сигнали — характеристики](https://www.wonderfulpcb.com/uk/blog/differences-and-characteristics-of-analog-and-digital-signalsdigital-signals/)
-- [Фоторезистор: будова та принцип роботи](https://corelamps.com/elektronika/fotorezystor/)
-- [Фоторезистор — практика підключення (Arduino)](https://arduino.ptngu.com/chapters/13/index.html)
-- [Дискретизація, теорема Котельникова, квантування (КНУБА)](https://org2.knuba.edu.ua/mod/book/tool/print/index.php?id=23040&chapterid=126)
-- [Moving Average фільтр — код для Arduino](https://radioman.com.ua/viewtopic.php?t=21)
-- [Типи АЦП — методичка КНУБА](https://org2.knuba.edu.ua/mod/book/tool/print/index.php?id=32487)
-
-### 🧠 C++
-- [cppreference — документація](https://cppreference.com/)
-- [learncpp.com — від бази до просунутого](https://www.learncpp.com/)
-- [w3schools C++ — практика](https://www.w3schools.com/cpp/)
-
----
-
-*Конспект оновлюю по мірі проходження модулів.*
+For any technical queries, please open an [issue](https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you soon.
