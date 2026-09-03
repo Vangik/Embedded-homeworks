@@ -1,69 +1,248 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-H21 | ESP32-H4 | ESP32-P4 | ESP32-S2 | ESP32-S3 | ESP32-S31 |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | --------- | -------- | -------- | -------- | -------- | --------- |
+# ESP32 — Усунення брязкоту контактів кнопки (Button Debounce)
 
-# Blink Example
+Домашнє завдання: реалізувати та порівняти різні методи усунення брязкоту
+механічної кнопки на ESP32 (ESP-IDF, Framework: ESP-IDF).
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+**Платформа:** ESP32 (DevKit)
+**Фреймворк:** ESP-IDF v6.1-beta1
+**Кнопка:** GPIO21 (активна в 0, pull-up)
+**Світлодіод:** GPIO19
 
-This example demonstrates how to blink a LED by using the GPIO driver or using the [led_strip](https://components.espressif.com/component/espressif/led_strip) library if the LED is addressable e.g. [WS2812](https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf). The `led_strip` library is installed via [component manager](main/idf_component.yml).
+---
 
-## How to Use Example
+## Зміст
 
-Before project configuration and build, be sure to set the correct chip target using `idf.py set-target <chip_name>`.
+1. [Схема підключення](#схема-підключення)
+2. [Завдання 1 — Без debounce](#завдання-1--без-debounce-базова-реалізація)
+3. [Завдання 2 — Time-based debounce](#завдання-2--time-based-debounce)
+4. [Завдання 3 — State-based debounce](#завдання-3--state-based-debounce)
+5. [Завдання 4 — Polling + FSM](#завдання-4--polling--debounce-машина-станів)
+6. [Завдання 5 — Hardware RC-фільтр](#завдання-5--hardware-debounce-rc-фільтр)
+7. [Завдання 6 — Порівняльна таблиця](#завдання-6--порівняльна-таблиця)
+8. [Висновки](#загальні-висновки)
 
-### Hardware Required
+---
 
-* A development board with normal LED or addressable LED on-board (e.g., ESP32-S3-DevKitC, ESP32-C6-DevKitC etc.)
-* A USB cable for Power supply and programming
+## Схема підключення
 
-See [Development Boards](https://www.espressif.com/en/products/devkits) for more information about it.
+### Базове підключення (Завдання 1–4, без RC)
 
-### Configure the Project
+```
+3.3V ──┐
+       │
+     [pull-up]  (внутрішній GPIO_PULLUP_ENABLE)
+       │
+GPIO21 ●──────[ КНОПКА ]──────── GND
+       │
+    (вхід, читаємо рівень: 1 = відпущена, 0 = натиснута)<img width="4080" height="3072" alt="PXL_20260903_131702721" src="https://github.com/user-attachments/assets/b432da2a-ee30-43b5-a271-f2d938df41eb" />
 
-Open the project configuration menu (`idf.py menuconfig`).
-
-In the `Example Configuration` menu:
-
-* Select the LED type in the `Blink LED type` option.
-  * Use `GPIO` for regular LED
-  * Use `LED strip` for addressable LED
-* If the LED type is `LED strip`, select the backend peripheral
-  * `RMT` is only available for ESP targets with RMT peripheral supported
-  * `SPI` is available for all ESP targets
-* Set the GPIO number used for the signal in the `Blink GPIO number` option.
-* Set the blinking period in the `Blink period in ms` option.
-
-### Build and Flash
-
-Run `idf.py -p PORT flash monitor` to build, flash and monitor the project.
-
-(To exit the serial monitor, type ``Ctrl-]``.)
-
-See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html) for full steps to configure and use ESP-IDF to build projects.
-
-## Example Output
-
-As you run the example, you will see the LED blinking, according to the previously defined period. For the addressable LED, you can also change the LED color by setting the `led_strip_set_pixel(led_strip, 0, 16, 16, 16);` (LED Strip, Pixel Number, Red, Green, Blue) with values from 0 to 255 in the [source file](main/blink_example_main.c).
-
-```text
-I (315) example: Example configured to blink addressable LED!
-I (325) example: Turning the LED OFF!
-I (1325) example: Turning the LED ON!
-I (2325) example: Turning the LED OFF!
-I (3325) example: Turning the LED ON!
-I (4325) example: Turning the LED OFF!
-I (5325) example: Turning the LED ON!
-I (6325) example: Turning the LED OFF!
-I (7325) example: Turning the LED ON!
-I (8325) example: Turning the LED OFF!
 ```
 
-Note: The color order could be different according to the LED model.
+- Кнопка не натиснута → pull-up тримає GPIO21 у стані **HIGH (1)**
+- Кнопка натиснута → пін замикається на GND → **LOW (0)**
+- Переривання / подія — на **спадному фронті** (NEGEDGE)
 
-The pixel number indicates the pixel position in the LED strip. For a single LED, use 0.
+### Підключення з RC-фільтром (Завдання 5)
 
-## Troubleshooting
+```
+3.3V ──[ 10k pull-up ]──┬─────[ 100R ]─────● GPIO21
+                        │                    │
+                     [КНОПКА]            [ 100n ]
+                        │                    │
+                       GND                  GND
+```
 
-* If the LED isn't blinking, check the GPIO or the LED type selection in the `Example Configuration` menu.
+Як працює:
+- **10k pull-up** — зовнішній, тримає вузол у HIGH, коли кнопка відпущена.
+- **100n конденсатор** — накопичує заряд; згладжує швидкі стрибки напруги
+  (брязкіт) на вході. Постійна часу зарядки τ = 10k × 100n ≈ **1 мс**, тому
+  дзвін контактів «розмазується» і не долітає до піна як різкі фронти.
+- **100R послідовний** — обмежує кидок струму, коли натиснута кнопка
+  розряджає конденсатор напряму на GND (захищає пін і конденсатор від
+  струмового піка).
 
-For any technical queries, please open an [issue](https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you soon.
+> Аналогія: конденсатор — як маленька батарейка/бак з водою. Швидкі
+> «сплески» брязкоту не встигають ані наповнити, ані спорожнити бак, тому
+> напруга на піні змінюється плавно, а не смикається.
+
+### Фото зібраної схеми
+
+<!-- Додай сюди фото макетки/плати -->
+Схема без RC
+<img width="4080" height="3072" alt="PXL_20260903_131702721" src="https://github.com/user-attachments/assets/3fbee504-253d-4598-b827-1f72fa1ccde4" />
+
+Схема з RC-фільтром
+<img width="4080" height="3072" alt="PXL_20260903_145556728" src="https://github.com/user-attachments/assets/d7710332-4b06-48c0-b086-45693dfc078f" />
+
+
+
+## Завдання 1 — Без debounce (базова реалізація)
+
+**Метод:** GPIO interrupt на FALLING, інкремент лічильника у кожному
+перериванні, вивід у лог. Без жодного антибрязкоту.
+
+**Очікування:** 1 фізичне натискання → кілька interrupt; interrupt
+викликається і при відпусканні.
+
+**Результат (лог):**
+
+<img width="956" height="557" alt="task1" src="https://github.com/user-attachments/assets/99bb123e-0c97-4afd-b6c4-531bbaf38885" />
+
+
+**Висновок:** одне натискання породжує кілька подій, інтервали між ними
+опускаються до ~60 мс. Реагує і на натиск, і на відпускання. Найнестабільніший
+варіант — брязкіт видно неозброєним оком у логах.
+
+---
+
+## Завдання 2 — Time-based debounce
+
+**Метод:** ISR лише ставить прапорець. Поза ISR ігноруємо подію, якщо з
+моменту попередньої прийнятої минуло менше `DEBOUNCE_MS` (порівняння часу
+через `xTaskGetTickCount()`).
+
+**Очікування:** менше хибних спрацювань; release ще може реєструватися.
+
+**Результат (лог):**
+
+<img width="990" height="446" alt="task2" src="https://github.com/user-attachments/assets/3183b718-dba6-43d9-87b4-3da7fa07b665" />
+
+
+**Висновок:** швидкі здвоєні спрацювання майже зникли, короткі інтервали
+(~70 мс) проскакують рідко. Помітне покращення проти №1, але метод не
+розрізняє натиск і відпускання — тому release інколи ще дає подію.
+
+---
+
+## Завдання 3 — State-based debounce
+
+**Метод:** ISR сигналізує «подія». У задачі приймаємо подію лише якщо кнопка
+**досі натиснута** (перевірка рівня після короткої затримки), потім чекаємо
+відпускання перед наступним прийомом.
+
+**Очікування:** рівно 1 реакція на 1 натискання; release не викликає дії.
+
+**Результат (лог):**
+
+<img width="1095" height="451" alt="task3" src="https://github.com/user-attachments/assets/045afe66-5343-4067-8237-b662e4cc21ff" />
+
+
+**Висновок:** інтервали між подіями рівні (≥130 мс), жодного здвоєння.
+Відпускання ігнорується повністю. Стабільна поведінка.
+
+---
+
+## Завдання 4 — Polling + debounce (машина станів)
+
+**Метод:** переривання прибрано повністю. Опитуємо пін кожні `POLL_MS`.
+Debounce реалізовано як машину станів (FSM) з трьома станами:
+
+```
+RELEASED ──(pressed)──► DEBOUNCING ──(стабільно 0 протягом DEBOUNCE_MS)──► PRESSED
+    ▲                        │                                                │
+    │                   (відпустили                                      (відпустили)
+    └───────────────────  = брязкіт) ◄──────────────────────────────────────┘
+```
+
+- Реакція відбувається **рівно один раз** — у момент переходу
+  `DEBOUNCING → PRESSED`.
+- Утримання кнопки **не** дає повторних спрацювань (сидимо в PRESSED).
+- Брязкіт не проходить, бо вимагається стабільний рівень 0 протягом усього
+  `DEBOUNCE_MS`.
+
+**Очікування:** найстабільніша поведінка; трохи більша затримка реакції.
+
+**Результат (лог):**
+<img width="1095" height="441" alt="task4" src="https://github.com/user-attachments/assets/42d9274d-6c42-4ec3-860b-68d9322a9a6a" />
+
+
+**Висновок:** поведінка ідентична state-based за чистотою, але без переривань —
+логіка повністю детермінована й легко тестується. Затримка реакції = час
+підтвердження (`DEBOUNCE_MS`), на око непомітна.
+
+---
+
+## Завдання 5 — Hardware debounce (RC-фільтр)
+
+**Метод:** додано RC-фільтр (100n + 100R, pull-up 10k) і повторено варіанти
+1–4 з тим самим кодом, але з апаратним згладжуванням фронту.
+
+**Результати (логи):**
+
+Без debounce + RC
+<img width="1094" height="356" alt="task5_1" src="https://github.com/user-attachments/assets/141adbe1-4061-4bc3-849d-5d784f07defa" />
+Time-based + RC
+<img width="1091" height="354" alt="task5_2" src="https://github.com/user-attachments/assets/43b5fc36-1f12-4bdb-b1b8-80aeafb84205" />
+State-based + RC
+<img width="1091" height="357" alt="task5_3" src="https://github.com/user-attachments/assets/09c7691a-27ab-476d-96da-32d53eb7e114" />
+Polling FSM + RC
+<img width="1088" height="357" alt="task5_4" src="https://github.com/user-attachments/assets/7ddb9dc8-f1e6-498b-bb81-843bf8fdf742" />
+
+
+
+**Висновок:**
+- Навіть **без** софтверного debounce (task5_1) фронт помітно чистіший, ніж у
+  Завданні 1 — RC згладив дзвін електрично, ще до того, як його побачив код.
+- У комбінації з state-based / FSM (task5_3, task5_4) брязкіт зникає повністю.
+- RC і софтверний debounce **доповнюють** одне одного: залізо прибирає
+  високочастотний дзвін, софт — залишкові неоднозначності логіки.
+
+---
+
+## Завдання 6 — Порівняльна таблиця
+
+> Колонку «Хибних спрацювань» заповни точними числами за формулою:
+> `(кількість подій у логу) − (кількість фізичних натискань)`.
+> Для чесного тесту натискай рівно 5 разів і рахуй `press #N` у логу.
+
+| Метод | Хибні спрацювання | Реакція на release | Стабільність | Затримка реакції |
+|---|---|---|---|---|
+| **Без debounce** | багато (найгірше) | так | низька | ~0 |
+| **Time-based** | помітно менше | інколи | середня | ~0 |
+| **State-based** | ~0 | ні | висока | ≈ DEBOUNCE_MS |
+| **Polling (FSM)** | ~0 | ні | найвища (софт) | ≈ POLL·N + DEBOUNCE |
+| **Hardware RC** | ~0 (менше навіть без софту) | залежить від коду | найвища (залізо+софт) | + τ_RC (~1 мс) |
+
+*(Значення «хибних спрацювань» — якісна оцінка з логів; підстав свої числа
+після тесту з фіксованою кількістю натискань.)*
+
+---
+
+## Загальні висновки
+
+1. **Брязкіт реальний** — механічний контакт дзвенить кілька мілісекунд, і
+   без обробки одне натискання перетворюється на кілька подій.
+2. **Time-based** — простий і дешевий, але не розрізняє натиск/відпускання.
+3. **State-based / FSM** — дають «рівно 1 реакцію на 1 натискання»; FSM на
+   полінгу найпередбачуваніший і найзручніший для тестування.
+4. **RC-фільтр** прибирає брязкіт на рівні заліза, розвантажуючи софт, і
+   найкраще працює в парі з програмним debounce.
+5. Компроміс: чим сильніший debounce — тим більша затримка реакції. Для
+   кнопки це непомітно, але для швидких сигналів це треба враховувати.
+
+---
+
+## Як зібрати і запустити
+
+```bash
+# активувати середовище ESP-IDF
+. $HOME/esp/esp-idf/export.sh   # або: get_idf
+
+idf.py set-target esp32
+idf.py build
+idf.py -p /dev/tty.usbserial-XXXX flash monitor
+```
+
+## Структура репозиторію
+
+```
+.
+├── main/
+│   └── main.c            # код відповідного завдання
+├── docs/                 # скріни логів і фото плати
+│   ├── task1.png … task4.png
+│   ├── task5_1.png … task5_4.png
+│   ├── photo_no_rc.jpg
+│   └── photo_rc.jpg
+└── README.md
+```
