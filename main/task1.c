@@ -1,55 +1,88 @@
-
 #include <stdio.h>
-#include <stdbool.h>
 #include "driver/gpio.h"
-#include "esp_intr_alloc.h"
+#include "driver/ledc.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+static const char *TAG = "pwm-march";
 
-static const char *TAG = "2.4-irq";
+#define BUZZ_GPIO GPIO_NUM_4
 
-#define BTN_GPIO GPIO_NUM_21
+#define PWM_TIMER LEDC_TIMER_0
 
-/* Завдання 1: без debounce — рахуємо кожен фронт прямо в ISR */
-static volatile uint32_t press_count = 0;
+#define PWM_CHANNEL LEDC_CHANNEL_0
 
+#define PWM_MODE LEDC_LOW_SPEED_MODE
 
-/* ISR: лише сигнал, без debounce і без delay */
-static void IRAM_ATTR gpio_isr_handler(void *arg)
+#define PWM_RES LEDC_TIMER_8_BIT
+
+#define PWM_DUTY_HALF 128
+#define REST 0
+
+unsigned long lastPlay = 0;
+unsigned long playTime = 1000000; // 1 second in microseconds
+bool isPlaying = false;
+
+static void buzz_off(void)
 {
-    (void)arg;
-    press_count++;
+    ESP_ERROR_CHECK(ledc_set_duty(PWM_MODE, PWM_CHANNEL, 0));
+    ESP_ERROR_CHECK(ledc_update_duty(PWM_MODE, PWM_CHANNEL));
 }
 
-
-static void setup_button_irq(void)
+static void setup_pwm(void)
 {
-    gpio_config_t io = {
-        .pin_bit_mask = 1ULL << BTN_GPIO, /* маска: біт N = GPIO N */
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE, /* софтверний pull-up */
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_NEGEDGE, /* фронт натиску (на GND) */
+    ledc_timer_config_t timer = {
+        .speed_mode = PWM_MODE,
+        .duty_resolution = PWM_RES,
+        .timer_num = PWM_TIMER,
+        .freq_hz = 2000,
+        .clk_cfg = LEDC_AUTO_CLK,
     };
-    ESP_ERROR_CHECK(gpio_config(&io));
-    ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_IRAM));
-    ESP_ERROR_CHECK(gpio_isr_handler_add(BTN_GPIO, gpio_isr_handler, NULL));
+
+    ESP_ERROR_CHECK(ledc_timer_config(&timer));
+
+    ledc_channel_config_t ch = {
+        .gpio_num = BUZZ_GPIO,
+        .speed_mode = PWM_MODE,
+        .channel = PWM_CHANNEL,
+        .timer_sel = PWM_TIMER,
+        .duty = 0,
+        .hpoint = 0,
+        .sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
+        .flags.output_invert = 0,
+    };
+    ESP_ERROR_CHECK(ledc_channel_config(&ch));
 }
 
 void app_main(void)
 {
-    setup_button_irq();
-    unsigned long last_press_count = 0;
-    ESP_LOGI(TAG, "ready: BTN%d", (int)BTN_GPIO);
+    setup_pwm();
+    buzz_off();
+    ESP_LOGI(TAG, "==== PWM IMPERIAL MARCH GPIO%d ====", (int)BUZZ_GPIO);
+
     while (1)
     {
-        /* друкуємо КОЖЕН фронт, а не лише останній — видно пачку на один клік */
-        while (last_press_count != press_count)
+        int64_t now = esp_timer_get_time();
+
+        if (now - lastPlay >= playTime)
         {
-            last_press_count++;
-            ESP_LOGI(TAG, "irq #%lu", last_press_count);
+            lastPlay = now;        
+            isPlaying = !isPlaying; 
+
+            if (isPlaying)
+            {
+                ESP_LOGI(TAG, "ON");
+                ESP_ERROR_CHECK(ledc_set_freq(PWM_MODE, PWM_TIMER, 100));
+                ESP_ERROR_CHECK(ledc_set_duty(PWM_MODE, PWM_CHANNEL, PWM_DUTY_HALF));
+                ESP_ERROR_CHECK(ledc_update_duty(PWM_MODE, PWM_CHANNEL));
+            }
+            else
+            {
+                ESP_LOGI(TAG, "OFF");
+                buzz_off();
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));
