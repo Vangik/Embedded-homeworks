@@ -21,17 +21,22 @@
 
 > 📷 **Схема підключення:**
 >
-> `![Схема підключення](docs/schema.jpg)`
+> <img width="4080" height="3072" alt="PXL_20260924_180331662 MP" src="https://github.com/user-attachments/assets/ed69fcf4-fcf4-440d-a2b9-1b58cdbe91bb" />
+
 
 ## Демонстрація
 
-> 🎥 **Відео роботи зі звуком 1**
->
-> `[Дивитись відео](docs/demo.mp4)`
->
-> 🎥 **Відео роботи зі звуком 2**
->
-> `![Плата в роботі](docs/board.jpg)`
+🎥 **Відео роботи зі звуком 1**
+
+https://github.com/user-attachments/assets/9f5a78fc-583a-4be6-b7d5-57d1272f4bba 
+
+
+🎥 **Відео роботи зі звуком 2**
+
+https://github.com/user-attachments/assets/f509fa4c-e14e-4272-a2c3-9ec911b632ff
+
+
+
 
 ## Мелодія
 
