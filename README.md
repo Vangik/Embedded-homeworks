@@ -11,24 +11,10 @@
 ---
 
 ## Схема підключення
-
-<!-- Додай сюди фото макетки/схеми -->
-_(місце для фото)_
+<img width="3072" height="4080" alt="PXL_20260930_195222924" src="https://github.com/user-attachments/assets/30dc9b4f-b5dc-4204-931a-5bf1c02a768e" />
 
 ## Демонстрація роботи
-
-<!-- Додай сюди відео роботи серво -->
-_(місце для відео)_
+https://github.com/user-attachments/assets/df2dfb1f-8e40-43b1-91f0-c70bc6285601
 
 ## Лог (кут від крайнього лівого положення)
-
-<!-- Додай сюди скріншот логу -->
-_(місце для фото)_
-
----
-
-## Збірка та прошивка
-
-```bash
-idf.py build flash monitor
-```
+<img width="456" height="272" alt="Screenshot 2026-09-30 at 23 42 55" src="https://github.com/user-attachments/assets/8ff2a157-83f1-4731-8b1d-e3ad6469da87" />
