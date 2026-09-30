@@ -1,90 +1,120 @@
 #include <stdio.h>
 #include "driver/gpio.h"
-#include "driver/ledc.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "pwm_hw.h"
+#include "esp_adc/adc_oneshot.h"
 
-static const char *TAG = "pwm-march";
+static const char *TAG = "3.5-sg90";
 
-#define BUZZ_GPIO GPIO_NUM_4
+#define SERVO_GPIO 18
+#define US_AT_0 500
+#define US_AT_180 2400
+#define HOLD_MS 10
 
-#define PWM_TIMER LEDC_TIMER_0
+#define LOG_DELAY 1000000 /* esp_timer_get_time() is in microseconds: 1 s */
 
-#define PWM_CHANNEL LEDC_CHANNEL_0
+#define ADC_GPIO GPIO_NUM_4
+#define ADC_BITWIDTH ADC_BITWIDTH_12
+#define ADC_ATTEN ADC_ATTEN_DB_12
+#define N_AVG 4
 
-#define PWM_MODE LEDC_LOW_SPEED_MODE
+#define T 270
+#define RAW_LEFT 0
+#define RAW_RIGHT 4095
+#define RAW_180 (RAW_LEFT + (RAW_RIGHT - RAW_LEFT) * 180 / T)
 
-#define PWM_RES LEDC_TIMER_8_BIT
+int64_t lastLog = 0;
 
-#define PWM_DUTY_HALF 128
-#define REST 0
+static adc_oneshot_unit_handle_t s_adc;
+static adc_channel_t s_channel;
 
-unsigned long lastPlay = 0;
-unsigned long playTime = 1000000; // 1 second in microseconds
-bool isPlaying = false;
-
-static void buzz_off(void)
+static uint32_t deg_to_us(int deg)
 {
-    ESP_ERROR_CHECK(ledc_set_duty(PWM_MODE, PWM_CHANNEL, 0));
-    ESP_ERROR_CHECK(ledc_update_duty(PWM_MODE, PWM_CHANNEL));
+    if (deg < 0)
+    {
+        deg = 0;
+    }
+    if (deg > 180)
+    {
+        deg = 180;
+    }
+    return US_AT_0 + ((uint32_t)deg * (US_AT_180 - US_AT_0)) / 180;
 }
 
-static void setup_pwm(void)
+static void servo_write_deg(int deg)
 {
-    ledc_timer_config_t timer = {
-        .speed_mode = PWM_MODE,
-        .duty_resolution = PWM_RES,
-        .timer_num = PWM_TIMER,
-        .freq_hz = 2000,
-        .clk_cfg = LEDC_AUTO_CLK,
-    };
+    pwm_hw_set_pulse_us(deg_to_us(deg));
+}
 
-    ESP_ERROR_CHECK(ledc_timer_config(&timer));
+static void hold_deg(int deg)
+{
+    servo_write_deg(deg);
+    vTaskDelay(pdMS_TO_TICKS(HOLD_MS));
+}
 
-    ledc_channel_config_t ch = {
-        .gpio_num = BUZZ_GPIO,
-        .speed_mode = PWM_MODE,
-        .channel = PWM_CHANNEL,
-        .timer_sel = PWM_TIMER,
-        .duty = 0,
-        .hpoint = 0,
-        .sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
-        .flags.output_invert = 0,
+static void setup_adc(void)
+{
+    adc_unit_t unit = 0;
+    ESP_ERROR_CHECK(adc_oneshot_io_to_channel(ADC_GPIO, &unit, &s_channel));
+    adc_oneshot_unit_init_cfg_t init = {
+        .unit_id = unit,
     };
-    ESP_ERROR_CHECK(ledc_channel_config(&ch));
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init, &s_adc));
+
+    adc_oneshot_chan_cfg_t ch = {
+        .bitwidth = ADC_BITWIDTH,
+        .atten = ADC_ATTEN,
+    };
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(s_adc, s_channel, &ch));
+}
+
+static int read_raw_avg(void)
+{
+    int acc = 0;
+    for (int i = 0; i < N_AVG; i++)
+    {
+        int raw = 0;
+        ESP_ERROR_CHECK(adc_oneshot_read(s_adc, s_channel, &raw));
+        acc += raw;
+    }
+    return acc / N_AVG;
+}
+
+static float adc_to_angle(int adc_raw)
+{
+    float a = (float)(adc_raw - RAW_LEFT) * 180.0f / (float)(RAW_180 - RAW_LEFT);
+    if (a < 0.0f)
+        a = 0.0f;
+    if (a > 180.0f)
+        a = 180.0f;
+    return a;
 }
 
 void app_main(void)
 {
-    setup_pwm();
-    buzz_off();
-    ESP_LOGI(TAG, "==== PWM IMPERIAL MARCH GPIO%d ====", (int)BUZZ_GPIO);
+    pwm_hw_init(SERVO_GPIO);
+    servo_write_deg(90);
+    ESP_LOGI(TAG, "GPIO%d LEDC regs 50 Hz 13 bit APB", (int)SERVO_GPIO);
 
-    while (1)
+    setup_adc();
+
+    while (true)
     {
-        int64_t now = esp_timer_get_time();
+        const int raw = read_raw_avg();
+        const float angle = adc_to_angle(raw);
 
-        if (now - lastPlay >= playTime)
+        const int64_t now = esp_timer_get_time();
+        if (now - lastLog >= LOG_DELAY)
         {
-            lastPlay = now;        
-            isPlaying = !isPlaying; 
-
-            if (isPlaying)
-            {
-                ESP_LOGI(TAG, "ON");
-                ESP_ERROR_CHECK(ledc_set_freq(PWM_MODE, PWM_TIMER, 100));
-                ESP_ERROR_CHECK(ledc_set_duty(PWM_MODE, PWM_CHANNEL, PWM_DUTY_HALF));
-                ESP_ERROR_CHECK(ledc_update_duty(PWM_MODE, PWM_CHANNEL));
-            }
-            else
-            {
-                ESP_LOGI(TAG, "OFF");
-                buzz_off();
-            }
+            lastLog = now;
+            ESP_LOGI(TAG, "angle=%.1f deg (from left)", angle);
         }
 
+        hold_deg((int)angle);
+        
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
