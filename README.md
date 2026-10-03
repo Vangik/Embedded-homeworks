@@ -22,24 +22,11 @@
 ---
 
 ## Схема підключення
-
-<!-- Додай сюди фото макетки/схеми -->
-_(місце для фото)_
+<img width="4080" height="3072" alt="PXL_20261003_134643499" src="https://github.com/user-attachments/assets/7e23149e-27f5-44d6-9c64-edbbe460b3d7" />
 
 ## Демонстрація роботи
-
-<!-- Додай сюди відео роботи серво -->
-_(місце для відео)_
+https://github.com/user-attachments/assets/e9dbe846-399a-4ea9-be65-16d4193f7a86
 
 ## Лог монітора
+<img width="493" height="444" alt="Screenshot 2026-10-03 at 16 53 21" src="https://github.com/user-attachments/assets/ea94f2ea-815b-4c59-a4e5-f37a73c669c1" />
 
-<!-- Додай сюди скріншот з idf.py monitor -->
-_(місце для фото)_
-
----
-
-## Збірка та прошивка
-
-```bash
-idf.py build flash monitor
-```
