@@ -20,8 +20,6 @@ static void pwm_hw_enable_clock(void)
 {
     /* --- такт блоку LEDC (міст DPORT на ESP32) --- */
     DPORT_SET_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, DPORT_LEDC_CLK_EN);
-    DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, DPORT_LEDC_RST);
-    DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, DPORT_LEDC_RST);
     LEDC.conf.apb_clk_sel = 1; /* APB 80 МГц; на ESP32 тактування модуля вмикає лише DPORT */
 }
 
@@ -64,10 +62,6 @@ void pwm_hw_set_pulse_us(uint32_t pulse_us)
     LEDC.channel_group[1].channel[0].conf1.duty_cycle = 1;
     LEDC.channel_group[1].channel[0].conf1.duty_scale = 0;
     LEDC.channel_group[1].channel[0].conf0.sig_out_en = 1;
-    /* duty_start самоскидний — дочекатись завершення попередньої зміни */
-    while (LEDC.channel_group[1].channel[0].conf1.duty_start)
-    {
-    }
     LEDC.channel_group[1].channel[0].conf1.duty_start = 1;
     LEDC.channel_group[1].channel[0].conf0.low_speed_update = 1;
 }
